@@ -164,6 +164,14 @@ public:
 		caputure.release();
 		return caputure.open(filename);
 	}
+	//打开摄像头
+	//打开视频  
+	bool setInput(int id) {
+		fnumber = 0;
+		//若已打开，释放重新打开  
+		caputure.release();
+		return caputure.open(id);
+	}
 	//设置输入视频播放窗口  
 	void displayInput(string wn) {
 		WindowNameInput = wn;
@@ -290,14 +298,26 @@ int main()
 	VideoProcessor processor;
 	//创建特征跟踪器实例
 	FeatureTracker tracker;
+	/*---------------- 视频输入 -------------*/
 	//打开视频文件
-	processor.setInput("..\\..\\1.MP4");
+	//processor.setInput("..\\..\\1.MP4");
+	//设置帧处理器对象
+	//processor.setFrameProcessor(&tracker);
+	//声明显示窗口
+	//processor.displayOutput("Tracked Features");
+	//以原始帧率播放视频
+	//processor.setDelay(1000. / processor.getFrameRate());
+	//开始处理过程
+	//processor.run();
+	/*--------------- 摄像头输入 -------------*/
+	//打开摄像头
+	processor.setInput(0);
 	//设置帧处理器对象
 	processor.setFrameProcessor(&tracker);
 	//声明显示窗口
 	processor.displayOutput("Tracked Features");
-	//以原始帧率播放视频
-	processor.setDelay(1000. / processor.getFrameRate());
+	//延迟30ms
+	processor.setDelay(30);
 	//开始处理过程
 	processor.run();
 	return 0;

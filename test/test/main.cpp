@@ -1,304 +1,95 @@
+#include "opencv2/objdetect.hpp"
+#include "opencv2/videoio.hpp"
+#include "opencv2/highgui.hpp"
+#include "opencv2/imgproc.hpp"
 
-#include <opencv2\opencv.hpp>
-#include <opencv2\highgui\highgui.hpp>
-#include <opencv2\imgproc\imgproc.hpp>
+#include <iostream>
+#include <stdio.h>
 
 using namespace std;
 using namespace cv;
 
-//帧处理基类  
-class FrameProcessor
+/** Function Headers */
+void detectAndDisplay(Mat frame);
+
+/** Global variables */
+String face_cascade_name, eyes_cascade_name;
+CascadeClassifier face_cascade;
+CascadeClassifier eyes_cascade;
+String window_name = "Capture - Face detection";
+
+/** @function main */
+int main(int argc, const char** argv)
 {
-public:
-	virtual void process(Mat &input, Mat &ouput) = 0;
-};
+	CommandLineParser parser(argc, argv,
+		"{help h||}"
+		"{face_cascade|../../data/haarcascades/haarcascade_frontalface_alt.xml|}"
+		"{eyes_cascade|../../data/haarcascades/haarcascade_eye_tree_eyeglasses.xml|}");
 
-class FeatureTracker :public FrameProcessor
-{
-	Mat gray;//当前灰度图像
-	Mat gray_prev;//之前灰度图像
-				  //两幅图像间跟踪的特征点 0->1
-	vector<Point2f>points[2];
-	//跟踪的点的初始位置
-	vector<Point2f>initial;
-	vector<Point2f>features;//检测到的特征
-	int max_count;//需要跟踪的最大特征数目
-	double qlevel;//特征检测中的质量等级
-	double minDist;//两点之间的最小距离
-	vector<uchar>status;//检测到的特征的状态
-	vector<float>err;//跟踪过程中的错误
-public:
-	FeatureTracker() :max_count(500), qlevel(0.01), minDist(10.) {}
+	cout << "\nThis program demonstrates using the cv::CascadeClassifier class to detect objects (Face + eyes) in a video stream.\n"
+		"You can use Haar or LBP features.\n\n";
+	parser.printMessage();
 
-	void process(Mat &frame, Mat &output)
+	face_cascade_name = parser.get<string>("face_cascade");
+	eyes_cascade_name = parser.get<string>("eyes_cascade");
+	VideoCapture capture;
+	Mat frame;
+
+	//-- 1. Load the cascades
+	if (!face_cascade.load(face_cascade_name)) { printf("--(!)Error loading face cascade\n"); return -1; };
+	if (!eyes_cascade.load(eyes_cascade_name)) { printf("--(!)Error loading eyes cascade\n"); return -1; };
+
+	//-- 2. Read the video stream
+	capture.open(0);
+	if (!capture.isOpened()) { printf("--(!)Error opening video capture\n"); return -1; }
+
+	while (capture.read(frame))
 	{
-		//转换为灰度图像
-		cvtColor(frame, gray, CV_BGR2GRAY);
-		frame.copyTo(output);
-		//1.如果需要添加新的特征点
-		if (addNewPoints())
+		if (frame.empty())
 		{
-			//进行检测
-			detectFeaturePoints();
-			//添加检测到的特征到当前跟踪的特征中
-			points[0].insert(points[0].end(), features.begin(), features.end());
-			initial.insert(initial.end(), features.begin(), features.end());
+			printf(" --(!) No captured frame -- Break!");
+			break;
 		}
-		//对于序列中的第一幅图像
-		if (gray_prev.empty())
-		{
-			gray.copyTo(gray_prev);
-		}
-		//2.跟踪特征点
-		calcOpticalFlowPyrLK(
-			gray_prev, gray,//两幅连续图
-			points[0],//图1中的输入点坐标
-			points[1],//图2中的输出点坐标
-			status,//跟踪成果
-			err);//跟踪错误
-				 //2.遍历所有跟踪的点进行筛选
-		int k = 0;
-		for (int i = 0; i<points[1].size(); i++)
-		{
-			//是否需要保留该点？
-			if (acceptTrackedPoint(i))
-			{
-				//进行保留
-				initial[k] = initial[i];
-				points[1][k++] = points[1][i];
-			}
-		}
-		//去除不成功的点
-		points[1].resize(k);
-		initial.resize(k);
-		//3.处理接收的跟踪点
-		handleTrackedPoints(frame, output);
-		//4.当前帧的点和图像变为前一帧的点和图像
-		swap(points[1], points[0]);
-		swap(gray_prev, gray);
-	}
 
-	//检测特征点
-	void detectFeaturePoints()
-	{
-		//检测特征
-		goodFeaturesToTrack(gray,//图像
-			features,//检测到的特征
-			max_count,//特征的最大数目
-			qlevel,//质量等级
-			minDist);//两个特征之间的最小距离
-	}
+		//-- 3. Apply the classifier to the frame
+		detectAndDisplay(frame);
 
-	//是否需要添加新的点
-	bool addNewPoints()
-	{
-		//如果点的数量太少
-		return points[0].size() <= 10;
+		char c = (char)waitKey(10);
+		if (c == 27) { break; } // escape
 	}
-
-	//决定哪些点应该跟踪
-	bool acceptTrackedPoint(int i)
-	{
-		return status[i] &&
-			//如果它移动了
-			(abs(points[0][i].x - points[1][i].x)) +
-			(abs(points[0][i].y - points[1][i].y))>2;
-	}
-
-	//处理当前跟踪的点
-	void handleTrackedPoints(Mat &frame, Mat &output)
-	{
-		//遍历所有跟踪点
-		for (int i = 0; i<points[1].size(); i++)
-		{
-			//绘制直线和圆
-			line(output,
-				initial[i],//初始位置
-				points[1][i],//新位置
-				Scalar(255, 255, 255));
-			circle(output, points[1][i], 3, Scalar(255, 255, 255), -1);
-		}
-	}
-};
-
-class VideoProcessor
-{
-private:
-
-	VideoCapture caputure;
-	//输出文件名  
-	string Outputfile;
-	int currentIndex;
-	int digits;
-	string extension;
-	FrameProcessor *frameprocessor;
-	//图像处理函数指针  
-	void(*process)(Mat &, Mat &);
-	bool callIt;
-	string WindowNameInput;
-	string WindowNameOutput;
-	//延时  
-	int delay;
-	long fnumber;
-	//第frameToStop停止  
-	long frameToStop;
-	//暂停标志  
-	bool stop;
-	//图像序列作为输入视频流  
-	vector<string> images;
-	//迭代器  
-public:
-	VideoProcessor() :callIt(true), delay(0), fnumber(0), stop(false), digits(0), frameToStop(-1) {}
-
-
-	//设置图像处理函数  
-	void setFrameProcessor(void(*process)(Mat &, Mat &)) {
-		frameprocessor = 0;
-		this->process = process;
-		CallProcess();
-	}
-	//打开视频  
-	bool setInput(string filename) {
-		fnumber = 0;
-		//若已打开，释放重新打开  
-		caputure.release();
-		return caputure.open(filename);
-	}
-	//设置输入视频播放窗口  
-	void displayInput(string wn) {
-		WindowNameInput = wn;
-		namedWindow(WindowNameInput);
-	}
-	//设置输出视频播放窗口  
-	void displayOutput(string wn) {
-		WindowNameOutput = wn;
-		namedWindow(WindowNameOutput);
-	}
-	//销毁窗口  
-	void dontDisplay() {
-		destroyWindow(WindowNameInput);
-		destroyWindow(WindowNameOutput);
-		WindowNameInput.clear();
-		WindowNameOutput.clear();
-	}
-
-	//启动  
-	void run() {
-		Mat frame;
-		Mat output;
-		if (!isOpened())
-			return;
-		stop = false;
-		while (!isStopped()) {
-			//读取下一帧  
-			if (!readNextFrame(frame))
-				break;
-			if (WindowNameInput.length() != 0)
-				imshow(WindowNameInput, frame);
-			//处理该帧  
-			if (callIt) {
-				if (process)
-					process(frame, output);
-				else if (frameprocessor)
-					frameprocessor->process(frame, output);
-			}
-			else {
-				output = frame;
-			}
-
-			if (WindowNameOutput.length() != 0)
-				imshow(WindowNameOutput, output);
-			//按键暂停，继续按键继续  
-			if (delay >= 0 && waitKey(delay) >= 0)
-				waitKey(0);
-			//到达指定暂停键，退出  
-			if (frameToStop >= 0 && getFrameNumber() == frameToStop)
-				stopIt();
-		}
-	}
-	//暂停键置位  
-	void stopIt() {
-		stop = true;
-	}
-	//查询暂停标志位  
-	bool isStopped() {
-		return stop;
-	}
-	//返回视频打开标志  
-	bool isOpened() {
-		return  caputure.isOpened() || !images.empty();
-	}
-	//设置延时  
-	void setDelay(int d) {
-		delay = d;
-	}
-	//读取下一帧  
-	bool readNextFrame(Mat &frame) {
-		if (images.size() == 0)
-			return caputure.read(frame);
-		else {
-			if (itImg != images.end()) {
-				frame = imread(*itImg);
-				itImg++;
-				return frame.data ? 1 : 0;
-			}
-			else
-				return false;
-		}
-	}
-
-	void CallProcess() {
-		callIt = true;
-	}
-	void  dontCallProcess() {
-		callIt = false;
-	}
-	//设置停止帧  
-	void stopAtFrameNo(long frame) {
-		frameToStop = frame;
-	}
-	// 获得当前帧的位置  
-	long getFrameNumber() {
-		long fnumber = static_cast<long>(caputure.get((CV_CAP_PROP_POS_FRAMES)));
-		return fnumber;
-	}
-
-	//获取帧率  
-	double getFrameRate() {
-		return caputure.get(CV_CAP_PROP_FPS);
-	}
-	vector<string>::const_iterator itImg;
-	bool setInput(const vector<string> &imgs) {
-		fnumber = 0;
-		caputure.release();
-		images = imgs;
-		itImg = images.begin();
-		return true;
-	}
-
-	void  setFrameProcessor(FrameProcessor *frameprocessor) {
-		process = 0;
-		this->frameprocessor = frameprocessor;
-		CallProcess();
-	}
-};
-
-
-int main()
-{
-	//创建视频处理器实例
-	VideoProcessor processor;
-	//创建特征跟踪器实例
-	FeatureTracker tracker;
-	//打开视频文件
-	processor.setInput("..\\..\\1.MP4");
-	//设置帧处理器对象
-	processor.setFrameProcessor(&tracker);
-	//声明显示窗口
-	processor.displayOutput("Tracked Features");
-	//以原始帧率播放视频
-	processor.setDelay(1000. / processor.getFrameRate());
-	//开始处理过程
-	processor.run();
 	return 0;
+}
+
+/** @function detectAndDisplay */
+void detectAndDisplay(Mat frame)
+{
+	std::vector<Rect> faces;
+	Mat frame_gray;
+
+	cvtColor(frame, frame_gray, COLOR_BGR2GRAY);
+	equalizeHist(frame_gray, frame_gray);
+
+	//-- Detect faces
+	face_cascade.detectMultiScale(frame_gray, faces, 1.1, 2, 0 | CASCADE_SCALE_IMAGE, Size(30, 30));
+
+	for (size_t i = 0; i < faces.size(); i++)
+	{
+		Point center(faces[i].x + faces[i].width / 2, faces[i].y + faces[i].height / 2);
+		ellipse(frame, center, Size(faces[i].width / 2, faces[i].height / 2), 0, 0, 360, Scalar(255, 0, 255), 4, 8, 0);
+
+		Mat faceROI = frame_gray(faces[i]);
+		std::vector<Rect> eyes;
+
+		//-- In each face, detect eyes
+		eyes_cascade.detectMultiScale(faceROI, eyes, 1.1, 2, 0 | CASCADE_SCALE_IMAGE, Size(30, 30));
+
+		for (size_t j = 0; j < eyes.size(); j++)
+		{
+			Point eye_center(faces[i].x + eyes[j].x + eyes[j].width / 2, faces[i].y + eyes[j].y + eyes[j].height / 2);
+			int radius = cvRound((eyes[j].width + eyes[j].height)*0.25);
+			circle(frame, eye_center, radius, Scalar(255, 0, 0), 4, 8, 0);
+		}
+	}
+	//-- Show what you got
+	imshow(window_name, frame);
 }
