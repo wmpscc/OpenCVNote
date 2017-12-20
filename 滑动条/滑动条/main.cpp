@@ -55,7 +55,7 @@ int main()
 
 	//在创建的窗体中创建一个滑动条控件
 	char TrackbarName[50];
-	sprintf(TrackbarName, "透明度 %d", g_dAlphaValue);
+	sprintf(TrackbarName, "透明度 %d", g_nMaxAlphaValue);
 
 	createTrackbar(TrackbarName, WINDOW_NAME, &g_nAlphaValueSlider, g_nMaxAlphaValue, on_Trackbar);
 
