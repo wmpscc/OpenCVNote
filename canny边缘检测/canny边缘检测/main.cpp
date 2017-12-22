@@ -24,7 +24,7 @@ int main()
 	// 显示效果图
 	imshow("【效果图】Canny边缘检测", edge);
 
-	waitKey(0);
+	waitKey(0); 
 
 
 	return 0;
