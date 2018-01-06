@@ -20,9 +20,9 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
-    <ProjectGuid>{F6B84872-2903-43A7-8FFA-541FA33AC393}</ProjectGuid>
+    <ProjectGuid>{A3032D53-3F6A-4E22-87AE-D9816078C09C}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>Core</RootNamespace>
+    <RootNamespace>adjust</RootNamespace>
     <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -139,11 +139,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="adjustContrastAndBright.cpp" />
-    <ClCompile Include="LinearBlend.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="MultiChannelBlend.cpp" />
-    <ClCompile Include="ROI.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

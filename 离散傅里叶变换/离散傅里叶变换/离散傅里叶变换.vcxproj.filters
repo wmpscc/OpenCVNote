@@ -18,17 +18,5 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="ROI.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="LinearBlend.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="MultiChannelBlend.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="adjustContrastAndBright.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
   </ItemGroup>
 </Project>

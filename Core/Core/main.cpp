@@ -8,7 +8,7 @@ void colorReduce1(Mat& inputImage, Mat& outputImage, int div);//用指针访问像素（
 void colorReduce2(Mat& inputimage, Mat& outputImage, int div);//用迭代器操作像素
 void colorReduce3(Mat& inputImage, Mat& outputImage, int div);//动态地址计算
 
-int main()
+int _main()
 {
 	//1.创建原始图并显示
 	Mat srcImage = imread("..//..//3.jpg");
